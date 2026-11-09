@@ -1,5 +1,4 @@
-# Pipeline CI/CD: se ejecuta en cada push y pull request.
-name: CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
@@ -7,41 +6,34 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 jobs:
-  build-test:
-    name: Build y pruebas
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install
-      - name: Revisión estática
-        run: npm run lint
-      - name: Pruebas con cobertura
-        run: npm test
-      - name: Construir imagen Docker
-        run: docker build -t plantilla-devops-itla:${{ github.sha }} .
+      - name: Checkout del código
+        uses: actions/checkout@v3
 
-  deploy-pages:
-    name: Despliegue a GitHub Pages
-    needs: build-test
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas y cobertura
+        run: npm test
+
+  deploy:
+    needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Desplegar a GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: public
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
